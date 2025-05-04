@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Management Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* bg-gray-100 */
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 1200px; /* Increased max-width */
+            margin: 2rem auto; /* margin-top and margin-bottom set to 2rem */
+            padding: 1rem;
+        }
+        .heading-wrapper {
+            text-align: center;
+            margin-bottom: 2rem; /* Increased margin-bottom */
+        }
+        .heading {
+            font-size: 2.25rem; /* text-3xl */
+            font-weight: 600; /* font-semibold */
+            color: #1e293b; /* text-gray-900 */
+            margin-bottom: 0.75rem; /* margin-bottom: 0.75rem; */
+        }
+        .description {
+            font-size: 1rem; /* text-base */
+            color: #4b5563; /* text-gray-600 */
+            max-width: 600px; /* Added max-width for better readability */
+            margin: 0 auto; /* Center the description */
+            line-height: 1.5rem; /* Added line-height for better readability */
+        }
+        .device-card {
+            background-color: #fff; /* bg-white */
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* shadow-md */
+            padding: 1.5rem; /* Increased padding */
+            margin-bottom: 1.5rem; /* margin-bottom */
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* Smooth transition */
+            display: flex; /* Use flexbox for layout */
+            flex-direction: column; /* Stack items vertically by default */
+            height: 100%; /* Make cards take up full height */
+        }
+        .device-card:hover {
+            transform: translateY(-0.25rem); /* Slightly move card up on hover */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* Increase shadow on hover */
+        }
+        .device-name {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 500; /* font-medium */
+            color: #1e293b; /* text-gray-900 */
+            margin-bottom: 0.5rem; /* margin-bottom */
+        }
+        .device-type {
+            font-size: 0.875rem; /* text-sm */
+            color: #6b7280; /* text-gray-500 */
+            margin-bottom: 1rem; /* margin-bottom */
+        }
+        .device-status {
+            font-size: 1rem; /* text-base */
+            color: #15803d; /* text-green-600 for connected */
+            margin-bottom: 0.5rem; /* margin-bottom */
+        }
+        .device-status.disconnected {
+            color: #991b1b; /* text-red-600 for disconnected */
+        }
+        .device-last-seen {
+            font-size: 0.875rem; /* text-sm */
+            color: #4b5563; /* text-gray-600 */
+            margin-bottom: 0; /* Removed default margin-bottom */
+        }
+        .device-details {
+            font-size: 0.875rem;
+            color: #4b5563;
+            margin-top: 1rem;
+            line-height: 1.5rem;
+        }
+
+        #device-list-container {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr); /* Start with 1 column on small screens */
+            gap: 1.5rem; /* gap */
+            margin-top: 2rem; /* margin-top */
+        }
+
+        /* Media query for medium screens and up (md breakpoint in Tailwind is 768px) */
+        @media (min-width: 768px) {
+            #device-list-container {
+                grid-template-columns: repeat(2, 1fr); /* 2 columns on medium screens */
+            }
+        }
+
+        /* Media query for large screens and up (lg breakpoint in Tailwind is 1024px) */
+        @media (min-width: 1024px) {
+            #device-list-container {
+                grid-template-columns: repeat(3, 1fr); /* 3 columns on large screens */
+            }
+        }
+        /* Added to push the last seen to the bottom */
+        .device-card-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="heading-wrapper">
+            <h1 class="heading">Device Management Dashboard</h1>
+            <p class="description">
+                Welcome to the Device Management Dashboard.  Here you can monitor and manage connected devices.
+            </p>
+        </div>
+        <div id="device-list-container">
+            </div>
+    </div>
+
+    <script>
+        const deviceListContainer = document.getElementById('device-list-container');
+        const socket = io('http://localhost:5000'); // Connect to the SocketIO server
+
+        // Function to render a single device card
+        function renderDeviceCard(device) {
+            const deviceCard = document.createElement('div');
+            deviceCard.className = 'device-card';
+
+            const deviceCardContent = document.createElement('div');
+            deviceCardContent.className = 'device-card-content';
+
+            const deviceName = document.createElement('h2');
+            deviceName.className = 'device-name';
+            deviceName.textContent = device.name;
+
+            const deviceType = document.createElement('p');
+            deviceType.className = 'device-type';
+            deviceType.textContent = `Type: ${device.type}`;
+
+            const deviceStatus = document.createElement('p');
+            deviceStatus.className = `device-status ${device.connection_status === 'Connected' ? '' : 'disconnected'}`;
+            deviceStatus.textContent = `Status: ${device.connection_status}`;
+
+            const deviceLastSeen = document.createElement('p');
+            deviceLastSeen.className = 'device-last-seen';
+            deviceLastSeen.textContent = `Last Seen: ${new Date(device.last_seen).toLocaleString()}`;
+
+            if(device.details){
+                const deviceDetails = document.createElement('p');
+                deviceDetails.className = 'device-details';
+                deviceDetails.textContent = device.details;
+                deviceCardContent.appendChild(deviceDetails);
+            }
+
+            deviceCardContent.appendChild(deviceName);
+            deviceCardContent.appendChild(deviceType);
+            deviceCardContent.appendChild(deviceStatus);
+            deviceCardContent.appendChild(deviceLastSeen);
+            deviceCard.appendChild(deviceCardContent);
+            return deviceCard;
+        }
+
+        // Function to update or add a device in the UI
+        function updateOrAddDevice(device) {
+            const existingDeviceCard = document.getElementById(`device-card-${device.id}`);
+            if (existingDeviceCard) {
+                // Update the existing card
+                const deviceStatusElement = existingDeviceCard.querySelector('.device-status');
+                deviceStatusElement.className = `device-status ${device.connection_status === 'Connected' ? '' : 'disconnected'}`;
+                deviceStatusElement.textContent = `Status: ${device.connection_status}`;
+
+                const deviceLastSeenElement = existingDeviceCard.querySelector('.device-last-seen');
+                deviceLastSeenElement.textContent = `Last Seen: ${new Date(device.last_seen).toLocaleString()}`;
+
+                const deviceNameElement = existingDeviceCard.querySelector('.device-name');
+                deviceNameElement.textContent = device.name;
+
+                const deviceTypeElement = existingDeviceCard.querySelector('.device-type');
+                deviceTypeElement.textContent = `Type: ${device.type}`;
+
+                const deviceDetailsElement = existingDeviceCard.querySelector('.device-details');
+                if (deviceDetailsElement && device.details) {
+                    deviceDetailsElement.textContent = device.details;
+                } else if (device.details) {
+                    const newDeviceDetailsElement = document.createElement('p');
+                    newDeviceDetailsElement.className = 'device-details';
+                    newDeviceDetailsElement.textContent = device.details;
+                    existingDeviceCard.appendChild(newDeviceDetailsElement);
+                }
+
+
+            } else {
+                // Add a new card
+                const newDeviceCard = renderDeviceCard(device);
+                newDeviceCard.id = `device-card-${device.id}`; // Set a unique ID
+                deviceListContainer.appendChild(newDeviceCard);
+            }
+        }
+
+        // Function to remove a device from the UI
+        function removeDevice(deviceId) {
+            const deviceCardToRemove = document.getElementById(`device-card-${deviceId}`);
+            if (deviceCardToRemove) {
+                deviceCardToRemove.remove();
+            }
+        }
+
+        // Initial fetch of devices from the API
+        fetch('http://localhost:5000/api/devices')
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(device => {
+                    const deviceCard = renderDeviceCard(device);
+                    deviceCard.id = `device-card-${device.id}`; // Set a unique ID for each card
+                    deviceListContainer.appendChild(deviceCard);
+                });
+            })
+            .catch(error => console.error('Error fetching devices:', error));
+
+        // SocketIO event listeners for real-time updates
+        socket.on('connect', () => {
+            console.log('Connected to SocketIO server');
+        });
+
+        socket.on('new_device', (device) => {
+            updateOrAddDevice(device);
+            console.log('New device added:', device);
+        });
+
+        socket.on('device_updated', (device) => {
+            updateOrAddDevice(device);
+            console.log('Device updated:', device);
+        });
+
+        socket.on('device_deleted', (data) => {
+            removeDevice(data.id);
+            console.log('Device deleted:', data.id);
+        });
+    </script>
+</body>
+</html>
